@@ -1,48 +1,63 @@
-# Azure App Service - SSL for SaaS Demo
+# Azure Container Apps - SSL for SaaS Demo
 
-A Node.js application designed to demonstrate Cloudflare SSL for SaaS by displaying HTTP headers, TLS information, and SNI (Server Name Indication) details.
+A containerized Node.js application designed to demonstrate Cloudflare SSL for SaaS by displaying HTTP headers, TLS information, and SNI (Server Name Indication) details. Runs on Azure Container Apps with Docker.
 
-**GitHub**: https://github.com/adz80/sample-azure-app
+**GitHub**: https://github.com/adz80/sample-azure-app-container
 
 ---
 
 ## 🚀 Quick Start - Deploy in 2 Steps
 
-### Step 1: Open Azure Cloud Shell
+### Prerequisites
 
-Go to https://shell.azure.com (or click the shell icon in Azure Portal)
+- Azure CLI installed ([install guide](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli))
+- Docker installed ([install guide](https://docs.docker.com/get-docker/))
+- Azure subscription
 
-```bash
-# Check your subscription
-az account show --query "{Name:name, ID:id}" --output table
-
-# (Optional) Switch subscription if needed
-# az account set --subscription "your-subscription-name"
-```
-
-### Step 2: Clone and Deploy
+### Step 1: Clone the Repository
 
 ```bash
 # Clone the repo
-git clone https://github.com/adz80/sample-azure-app.git
-cd sample-azure-app
+git clone https://github.com/adz80/sample-azure-app-container.git
+cd sample-azure-app-container
 
-# Deploy with one command (change app name to be unique)
-az webapp up \
-  --name ssl-saas-demo-[your-name] \
-  --runtime "NODE:24-lts" \
-  --sku B1 \
-  --location westus
-
-# Done! Wait 2-3 minutes for deployment
+# Login to Azure
+az login
 ```
 
-**Note**: If you get a quota error, try different regions:
-- `--location westeurope`
-- `--location australiaeast`
-- `--location southeastasia`
+### Step 2: Deploy to Azure Container Apps
 
-**Your app will be at**: `https://ssl-saas-demo-[your-name].azurewebsites.net`
+```bash
+# Deploy with one command (change app name to be unique)
+./deploy-container-app.sh ssl-saas-demo-yourname westus
+
+# Done! Wait 3-5 minutes for deployment
+```
+
+**Script Parameters:**
+- First argument: App name (must be unique, lowercase, alphanumeric and hyphens only)
+- Second argument: Azure region (default: westus)
+
+**Alternative regions:**
+- `westeurope`
+- `australiaeast`
+- `southeastasia`
+- `eastus`
+
+**Your app will be at**: `https://ssl-saas-demo-yourname.[region].azurecontainerapps.io`
+
+**Deployment Scripts:**
+- `deploy-cloud-shell.sh` - For Azure Cloud Shell (no Docker needed)
+- `deploy-container-app.sh` - For local deployment (requires Docker)
+
+Both scripts will:
+1. ✅ Create resource group
+2. ✅ Create Azure Container Registry (ACR)
+3. ✅ Build Docker image (locally or in Azure)
+4. ✅ Push image to ACR
+5. ✅ Create Container Apps environment
+6. ✅ Deploy your container app
+7. ✅ Configure ingress and scaling
 
 ---
 
@@ -51,15 +66,16 @@ az webapp up \
 - 🔒 **TLS Information Display**: Shows SNI hostname, TLS protocol, and cipher suite
 - 📡 **HTTP Headers Inspector**: Displays all incoming HTTP headers, organized by category
 - ☁️ **Cloudflare Headers**: Highlights Cloudflare-specific headers (CF-*, X-Forwarded-*)
-- 🌐 **Azure Headers**: Shows Azure App Service specific headers
+- 🌐 **Azure Headers**: Shows Azure Container Apps specific headers
 - 📋 **Copy to Clipboard**: Easy export of all request data
 - 🎨 **Clean Web UI**: Responsive interface perfect for live demos
+- 🐳 **Containerized**: Portable, scalable, runs anywhere
 
 ---
 
 ## 🏗️ How It Works
 
-This application captures request information at the Azure App Service level. Since Azure terminates TLS at the load balancer, the app reconstructs TLS information from headers provided by:
+This containerized application captures request information at the Azure Container Apps level. Since Azure terminates TLS at the ingress controller, the app reconstructs TLS information from headers provided by:
 
 - **Cloudflare**: `CF-SSL-Protocol`, `CF-SSL-Cipher`, `CF-Visitor`
 - **Azure**: `X-ARR-ClientCert`, `X-Forwarded-Proto`
@@ -72,27 +88,35 @@ Client Browser
     ↓
 Cloudflare Edge (TLS termination, adds CF-* headers)
     ↓
-Azure App Service Load Balancer (TLS re-termination, adds X-ARR-* headers)
+Azure Container Apps Ingress (TLS re-termination, adds X-Forwarded-* headers)
     ↓
-Node.js Application (captures all headers)
+Docker Container (Node.js Application captures all headers)
 ```
 
 ---
 
 ## 💻 Local Development
 
-### Prerequisites
+### Option 1: Docker (Recommended)
 
+```bash
+# Build and run with Docker Compose
+docker-compose up
+
+# Or build and run manually
+docker build -t ssl-saas-demo .
+docker run -p 8080:8080 ssl-saas-demo
+```
+
+Open your browser to `http://localhost:8080`
+
+### Option 2: Node.js Directly
+
+**Prerequisites:**
 - Node.js 18.x or higher
 - npm
 
-### Setup
-
 ```bash
-# Clone the repository
-git clone https://github.com/adz80/sample-azure-app.git
-cd sample-azure-app
-
 # Install dependencies
 npm install
 
@@ -102,34 +126,50 @@ npm start
 
 Open your browser to `http://localhost:8080`
 
+### Development Tips
+
+- **Hot reload**: Mount volumes in docker-compose.yml (already configured)
+- **View logs**: `docker-compose logs -f`
+- **Rebuild**: `docker-compose up --build`
+- **Stop**: `docker-compose down`
+
 ---
 
 ## ☁️ Cloudflare SSL for SaaS Setup
 
 This demo shows how to use Cloudflare SSL for SaaS to provide custom domains for your customers.
 
-**Prerequisites**: Deploy your Azure app first (see Quick Start above)
+**Prerequisites**: Deploy your Azure Container App first (see Quick Start above)
 
 **Example domains used**:
 - Azure custom domain: `demo.example.com`
 - SSL for SaaS customer domain: `school1.schooldomain.edu`
 
-### Step 1: Add Custom Domain in Azure
+### Step 1: Add Custom Domain in Azure Container Apps
 
-Add a custom domain to your Azure App Service:
+Add a custom domain to your Azure Container App:
+
+**Get your Container App FQDN**:
+```bash
+az containerapp show \
+  --name ssl-saas-demo-yourname \
+  --resource-group ssl-saas-demo-yourname-rg \
+  --query properties.configuration.ingress.fqdn -o tsv
+```
 
 **Configure DNS**:
 ```
-CNAME: demo.example.com → ssl-saas-demo-[your-name].azurewebsites.net
+CNAME: demo.example.com → [container-app-fqdn from above]
 ```
 
 **Add to Azure**:
-1. Go to Azure Portal → Your App Service → **Custom domains**
+1. Go to Azure Portal → Your Container App → **Custom domains**
 2. Click **+ Add custom domain**
 3. Enter `demo.example.com` (your domain)
 4. Click **Validate** (Azure will verify the CNAME)
 5. Once validated, click **Add**
-6. Wait 1-2 minutes for domain to be added
+6. Choose certificate (Managed certificate recommended)
+7. Wait 1-2 minutes for domain to be added
 
 ### Step 2: Add SSL for SaaS Custom Hostname in Cloudflare
 
@@ -144,30 +184,31 @@ Add a customer domain through Cloudflare SSL for SaaS:
 
 ### Step 3: Configure DNS for SSL for SaaS Domain
 
-Create a CNAME record for the customer domain:
+Create a CNAME record for the customer domain pointing to your Container App FQDN:
 
 ```
-CNAME: school1.schooldomain.edu → ssl-saas-demo-[your-name].azurewebsites.net
+CNAME: school1.schooldomain.edu → [container-app-fqdn]
 ```
 
 Enable Cloudflare proxy (orange cloud) in DNS settings for automatic SSL.
 
-### Step 4: Add SSL for SaaS Domain to Azure
+### Step 4: Add SSL for SaaS Domain to Azure Container Apps
 
-Add the customer domain to Azure:
+Add the customer domain to Azure Container Apps:
 
-1. Go to Azure Portal → Your App Service → **Custom domains**
+1. Go to Azure Portal → Your Container App → **Custom domains**
 2. Click **+ Add custom domain**
 3. Enter `school1.schooldomain.edu`
 4. Click **Validate**
 5. Once validated, click **Add**
-6. **Do NOT add SSL binding** - Cloudflare handles SSL
+6. Choose **Managed certificate** (or skip if Cloudflare handles SSL)
+7. Wait for domain to be configured
 
 ### Step 5: Test the Demo
 
 **Direct Access** (no Cloudflare):
-- Visit `https://ssl-saas-demo-[your-name].azurewebsites.net`
-- You'll see Azure headers but no Cloudflare headers
+- Visit `https://ssl-saas-demo-yourname.[region].azurecontainerapps.io`
+- You'll see Azure Container Apps headers but no Cloudflare headers
 
 **Azure Custom Domain**:
 - Visit `https://demo.example.com`
@@ -194,14 +235,14 @@ Add the customer domain to Azure:
 | `cf-ssl-protocol` | TLS version used | `TLSv1.3` |
 | `cf-ssl-cipher` | Cipher suite | `AEAD-AES128-GCM-SHA256` |
 
-### Azure Headers (X-ARR-*, X-MS-*)
+### Azure Headers (X-ARR-*, X-MS-*, X-Forwarded-*)
 
 | Header | Description | Example |
 |--------|-------------|---------|
-| `x-arr-log-id` | Azure request log ID | `abc123-def456` |
-| `x-arr-ssl` | SSL/TLS information | `2048\|256\|C=US...` |
+| `x-forwarded-for` | Client IP chain | `203.0.113.42` |
+| `x-forwarded-proto` | Protocol used | `https` |
+| `x-forwarded-host` | Original host header | `school1.schooldomain.edu` |
 | `x-arr-clientcert` | Client certificate (if mTLS) | Base64 encoded cert |
-| `disguised-host` | Original host before routing | `school1.schooldomain.edu` |
 
 ### TLS Information Sources
 
@@ -217,13 +258,13 @@ Add the customer domain to Azure:
 ### What to Show
 
 **1. Direct Access**
-- Open `https://ssl-saas-demo-[your-name].azurewebsites.net`
-- Point out: "No Cloudflare headers - direct to Azure"
+- Open `https://ssl-saas-demo-yourname.[region].azurecontainerapps.io`
+- Point out: "No Cloudflare headers - direct to Azure Container Apps"
 - Show: TLS cipher is "N/A"
 
 **2. Azure Custom Domain**
 - Open `https://demo.example.com`
-- Point out: "Custom domain on Azure"
+- Point out: "Custom domain on Azure Container Apps"
 - Show: SNI changes to custom domain
 
 **3. SSL for SaaS Domain**
@@ -239,10 +280,10 @@ Add the customer domain to Azure:
 
 ### Expected Output
 
-**Direct Access** (`ssl-saas-demo-[your-name].azurewebsites.net`):
+**Direct Access** (`ssl-saas-demo-yourname.[region].azurecontainerapps.io`):
 - ✅ Azure headers
 - ❌ No Cloudflare headers
-- SNI = `ssl-saas-demo-[your-name].azurewebsites.net`
+- SNI = `ssl-saas-demo-yourname.[region].azurecontainerapps.io`
 - TLS cipher = "N/A"
 
 **Azure Custom Domain** (`demo.example.com`):
@@ -264,24 +305,29 @@ Add the customer domain to Azure:
 After making code changes:
 
 ```bash
-# In Azure Cloud Shell
-cd sample-azure-app
-git pull
-az webapp up
+# Rebuild and redeploy
+./deploy-container-app.sh ssl-saas-demo-yourname westus
 ```
 
-Or locally:
+The script will:
+- Rebuild the Docker image
+- Push to ACR
+- Update the Container App with the new image
+
+Or manually:
 
 ```bash
-# Commit and push to GitHub
-git add .
-git commit -m "Your changes"
-git push origin main
+# Build and push
+docker build -t ssl-saas-demo .
+az acr login --name sslsaasdemoYournameacr
+docker tag ssl-saas-demo sslsaasdemoYournameacr.azurecr.io/ssl-saas-demo:latest
+docker push sslsaasdemoYournameacr.azurecr.io/ssl-saas-demo:latest
 
-# Then in Azure Cloud Shell
-cd sample-azure-app
-git pull
-az webapp up
+# Update container app
+az containerapp update \
+  --name ssl-saas-demo-yourname \
+  --resource-group ssl-saas-demo-yourname-rg \
+  --image sslsaasdemoYournameacr.azurecr.io/ssl-saas-demo:latest
 ```
 
 ---
@@ -290,20 +336,40 @@ az webapp up
 
 ### Deployment Issues
 
-**Quota error during deployment**
-- Try different regions: `--location westeurope` or `--location australiaeast`
-- Or request quota increase in Azure Portal → Subscriptions → Usage + quotas
+**Docker not running**
+- Start Docker Desktop or Docker daemon
+- Verify: `docker ps`
 
-**App won't start**
+**Azure CLI not logged in**
 ```bash
-az webapp log tail --name ssl-saas-demo-[your-name] --resource-group [auto-generated-rg]
+az login
+az account show
 ```
 
-**Build fails**
-- Check that `package.json` is valid
-- Ensure `node_modules` is in `.gitignore`
+**Quota error during deployment**
+- Try different regions: `./deploy-container-app.sh myapp westeurope`
+- Or request quota increase in Azure Portal → Subscriptions → Usage + quotas
+
+**ACR name already taken**
+- The script generates ACR name from app name
+- Try a more unique app name
 
 ### Runtime Issues
+
+**Container won't start**
+```bash
+# View logs
+az containerapp logs show \
+  --name ssl-saas-demo-yourname \
+  --resource-group ssl-saas-demo-yourname-rg \
+  --follow
+
+# Check revision status
+az containerapp revision list \
+  --name ssl-saas-demo-yourname \
+  --resource-group ssl-saas-demo-yourname-rg \
+  --output table
+```
 
 **No Cloudflare headers visible**
 - You're accessing directly (not through Cloudflare)
@@ -317,23 +383,38 @@ az webapp log tail --name ssl-saas-demo-[your-name] --resource-group [auto-gener
 
 **Custom domain not working**
 - Wait for DNS propagation (up to 48h, usually minutes)
-- Verify CNAME points to Azure URL
+- Verify CNAME points to Container App FQDN
 - Check Azure custom domain is added and verified
 
 ### Useful Commands
 
 ```bash
-# View logs
-az webapp log tail --name ssl-saas-demo-[your-name] --resource-group [auto-generated-rg]
+# View logs (live tail)
+az containerapp logs show \
+  --name ssl-saas-demo-yourname \
+  --resource-group ssl-saas-demo-yourname-rg \
+  --follow
 
 # Restart app
-az webapp restart --name ssl-saas-demo-[your-name] --resource-group [auto-generated-rg]
+az containerapp revision restart \
+  --name ssl-saas-demo-yourname \
+  --resource-group ssl-saas-demo-yourname-rg
 
-# Check subscription
-az account show --output table
+# Get app URL
+az containerapp show \
+  --name ssl-saas-demo-yourname \
+  --resource-group ssl-saas-demo-yourname-rg \
+  --query properties.configuration.ingress.fqdn -o tsv
+
+# Scale app
+az containerapp update \
+  --name ssl-saas-demo-yourname \
+  --resource-group ssl-saas-demo-yourname-rg \
+  --min-replicas 0 \
+  --max-replicas 10
 
 # Delete everything (cleanup)
-az group delete --name [auto-generated-rg] --yes
+az group delete --name ssl-saas-demo-yourname-rg --yes
 ```
 
 ---
@@ -354,7 +435,7 @@ az group delete --name [auto-generated-rg] --yes
     "url": "/api/info",
     "protocol": "https",
     "hostname": "customer.example.com",
-    "timestamp": "2026-05-28T07:23:04.000Z"
+    "timestamp": "2026-05-29T04:23:04.000Z"
   },
   "tls": {
     "sni": "customer.example.com",
@@ -378,8 +459,29 @@ az group delete --name [auto-generated-rg] --yes
 
 - **Node.js 24 LTS**: Runtime environment
 - **Express**: Web framework
-- **Azure App Service**: Hosting platform
-- **Cloudflare SSL for SaaS**: SSL/TLS proxy
+- **Docker**: Containerization (node:24-alpine base image)
+- **Azure Container Apps**: Hosting platform (Kubernetes-based)
+- **Azure Container Registry**: Private Docker registry
+- **Cloudflare SSL for SaaS**: SSL/TLS proxy and custom hostnames
+
+---
+
+## 🐳 Container Details
+
+### Dockerfile
+
+- **Base Image**: `node:24-alpine` (lightweight, secure, production-ready)
+- **Multi-stage build**: Optimized for size and security
+- **Non-root user**: Runs as `nodejs` user (UID 1001)
+- **Port**: 8080
+- **Size**: ~150MB (vs ~1GB for full Node images)
+
+### Why Alpine?
+
+- ✅ **Small**: 5MB base vs 100MB+ for Debian
+- ✅ **Secure**: Minimal attack surface, fewer vulnerabilities
+- ✅ **Fast**: Quick image pulls and container startup
+- ✅ **Production-ready**: Industry standard for Node.js containers
 
 ---
 
@@ -393,21 +495,70 @@ MIT
 
 ### Deploy Command
 ```bash
-az webapp up --name ssl-saas-demo-[your-name] --runtime "NODE:24-lts" --sku B1 --location westus
+./deploy-container-app.sh ssl-saas-demo-yourname westus
 ```
 
 ### Update Command
 ```bash
-cd sample-azure-app && git pull && az webapp up
+./deploy-container-app.sh ssl-saas-demo-yourname westus
 ```
 
 ### View Logs
 ```bash
-az webapp log tail --name ssl-saas-demo-[your-name] --resource-group [auto-generated-rg]
+az containerapp logs show \
+  --name ssl-saas-demo-yourname \
+  --resource-group ssl-saas-demo-yourname-rg \
+  --follow
+```
+
+### Delete Everything
+```bash
+az group delete --name ssl-saas-demo-yourname-rg --yes
 ```
 
 ---
 
-**Time to deploy**: ~3 minutes  
+**Time to deploy**: ~5 minutes  
 **Time to configure SSL for SaaS**: ~5 minutes  
-**Total**: ~8 minutes to full demo! ⚡
+**Total**: ~10 minutes to full demo! ⚡
+
+---
+
+## 🚀 What's Different from App Service?
+
+| Feature | App Service | Container Apps |
+|---------|-------------|----------------|
+| **Deployment** | `az webapp up` | Docker + `deploy-container-app.sh` |
+| **Portability** | Azure-only | Run anywhere (local, cloud, multi-cloud) |
+| **Scaling** | Basic autoscale | KEDA-based, scale to zero |
+| **Cost** | Always running | Pay-per-use, can scale to zero |
+| **Control** | Limited runtime control | Full container control |
+| **URL Format** | `.azurewebsites.net` | `.azurecontainerapps.io` |
+| **Architecture** | PaaS | Container-native (Kubernetes) |
+
+### Benefits of Container Apps
+
+- 🐳 **Portable**: Same container runs locally and in production
+- 💰 **Cost-effective**: Scale to zero when not in use
+- 🔄 **Flexible**: Easy to move between clouds
+- 📦 **Modern**: Container-native, microservices-ready
+- 🎯 **Precise**: Full control over runtime environment
+## 🚀 What's Different from App Service?
+
+| Feature | App Service | Container Apps |
+|---------|-------------|----------------|
+| **Deployment** | `az webapp up` | Docker + `deploy-container-app.sh` |
+| **Portability** | Azure-only | Run anywhere (local, cloud, multi-cloud) |
+| **Scaling** | Basic autoscale | KEDA-based, scale to zero |
+| **Cost** | Always running | Pay-per-use, can scale to zero |
+| **Control** | Limited runtime control | Full container control |
+| **URL Format** | `.azurewebsites.net` | `.azurecontainerapps.io` |
+| **Architecture** | PaaS | Container-native (Kubernetes) |
+
+### Benefits of Container Apps
+
+- 🐳 **Portable**: Same container runs locally and in production
+- 💰 **Cost-effective**: Scale to zero when not in use
+- 🔄 **Flexible**: Easy to move between clouds
+- 📦 **Modern**: Container-native, microservices-ready
+- 🎯 **Precise**: Full control over runtime environment

@@ -5,3 +5,6 @@ npm-debug.log
 *.log
 .vscode/
 .idea/
+
+# Azure
+.azure/
