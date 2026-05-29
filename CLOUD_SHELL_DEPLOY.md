@@ -6,7 +6,7 @@ This guide shows you how to deploy directly from Azure Cloud Shell without needi
 
 ---
 
-## 🚀 Deploy in 2 Steps
+## 🚀 Deploy in 3 Steps
 
 ### Step 1: Open Azure Cloud Shell
 
@@ -14,7 +14,26 @@ Go to **https://shell.azure.com** (or click the shell icon in Azure Portal)
 
 The Cloud Shell will automatically log you in to Azure.
 
-### Step 2: Clone and Deploy
+### Step 2: Register Required Azure Providers (First Time Only)
+
+**Important**: If this is your first time using Container Registry or Container Apps in your subscription, you need to register the resource providers:
+
+```bash
+# Register required providers (one-time setup per subscription)
+az provider register --namespace Microsoft.ContainerRegistry
+az provider register --namespace Microsoft.App
+az provider register --namespace Microsoft.OperationalInsights
+
+# Wait for registration to complete (1-2 minutes)
+# Check status - wait until all show "Registered"
+az provider show --namespace Microsoft.ContainerRegistry --query "registrationState"
+az provider show --namespace Microsoft.App --query "registrationState"
+az provider show --namespace Microsoft.OperationalInsights --query "registrationState"
+```
+
+**Note**: If you've already deployed Container Apps or used Container Registry before, you can skip this step.
+
+### Step 3: Clone and Deploy
 
 ```bash
 # Clone the repository
@@ -203,7 +222,25 @@ az group delete --name ssl-saas-demo-yourname-rg --yes
 
 ---
 
-## 🎓 When to Use Each Script
+## 🎓MissingSubscriptionRegistration" Error
+```
+Error: The subscription is not registered to use namespace 'Microsoft.ContainerRegistry'
+```
+
+**Solution**: Register the required providers (first-time setup):
+```bash
+az provider register --namespace Microsoft.ContainerRegistry
+az provider register --namespace Microsoft.App
+az provider register --namespace Microsoft.OperationalInsights
+
+# Wait 1-2 minutes, then check status
+az provider show --namespace Microsoft.ContainerRegistry --query "registrationState"
+# Should show: "Registered"
+```
+
+Then retry your deployment.
+
+### " When to Use Each Script
 
 ### Use `deploy-cloud-shell.sh` when:
 - ✅ You don't have Docker installed

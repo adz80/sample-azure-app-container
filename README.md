@@ -14,6 +14,14 @@ A containerized Node.js application designed to demonstrate Cloudflare SSL for S
 - Docker installed ([install guide](https://docs.docker.com/get-docker/))
 - Azure subscription
 
+**First-time setup**: If this is your first time using Container Apps or Container Registry in your subscription, register the providers:
+```bash
+az provider register --namespace Microsoft.ContainerRegistry
+az provider register --namespace Microsoft.App
+az provider register --namespace Microsoft.OperationalInsights
+# Wait 1-2 minutes for registration to complete
+```
+
 ### Step 1: Clone the Repository
 
 ```bash

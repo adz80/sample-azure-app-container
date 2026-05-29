@@ -2,11 +2,24 @@
 
 ## Pre-Deployment Checklist
 
-### Local Environment
-- [ ] Docker installed and running (`docker ps` works)
-- [ ] Azure CLI installed (`az --version` works)
+### Azure Subscription Setup
 - [ ] Logged into Azure (`az account show` works)
 - [ ] Correct subscription selected
+- [ ] **First-time only**: Register required providers
+  ```bash
+  az provider register --namespace Microsoft.ContainerRegistry
+  az provider register --namespace Microsoft.App
+  az provider register --namespace Microsoft.OperationalInsights
+  ```
+- [ ] Verify providers are registered (shows "Registered"):
+  ```bash
+  az provider show --namespace Microsoft.ContainerRegistry --query "registrationState"
+  az provider show --namespace Microsoft.App --query "registrationState"
+  ```
+
+### Local Environment (if using local deployment)
+- [ ] Docker installed and running (`docker ps` works)
+- [ ] Azure CLI installed (`az --version` works)
 
 ### Code Verification
 - [ ] Docker build succeeds locally (`docker build -t test .`)
@@ -181,7 +194,8 @@ az containerapp update \
 
 ## Troubleshooting
 
-### App Won't Start
+### Ap**MissingSubscriptionRegistration error**: Register providers (see Pre-Deployment Checklist)
+- [ ] p Won't Start
 - [ ] Check logs: `az containerapp logs show --follow`
 - [ ] Verify image was pushed: Check ACR in portal
 - [ ] Check revision status: `az containerapp revision list`

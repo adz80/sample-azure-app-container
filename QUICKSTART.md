@@ -5,11 +5,17 @@
 ```bash
 # 1. Go to https://shell.azure.com
 
-# 2. Clone and navigate
+# 2. First-time only: Register providers (if needed)
+az provider register --namespace Microsoft.ContainerRegistry
+az provider register --namespace Microsoft.App
+az provider register --namespace Microsoft.OperationalInsights
+# Wait 1-2 minutes for registration to complete
+
+# 3. Clone and navigate
 git clone https://github.com/adz80/sample-azure-app-container.git
 cd sample-azure-app-container
 
-# 3. Deploy (change 'yourname' to something unique)
+# 4. Deploy (change 'yourname' to something unique)
 ./deploy-cloud-shell.sh ssl-saas-demo-yourname westus
 ```
 
